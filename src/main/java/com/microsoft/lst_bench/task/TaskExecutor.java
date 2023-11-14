@@ -27,6 +27,8 @@ import com.microsoft.lst_bench.telemetry.EventInfo.Status;
 import com.microsoft.lst_bench.telemetry.ImmutableEventInfo;
 import com.microsoft.lst_bench.telemetry.SQLTelemetryRegistry;
 import com.microsoft.lst_bench.util.StringUtils;
+
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -44,14 +46,9 @@ public class TaskExecutor {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(TaskExecutor.class);
 
-  private final String SKIP_ERRONEOUS_QUERY_DELIMITER = ";";
-  private final String SKIP_ERRONEOUS_QUERY_STRINGS_KEY = "skip_erroneous_query_strings";
-
   protected final SQLTelemetryRegistry telemetryRegistry;
   protected final String experimentStartTime;
   protected final Map<String, String> arguments;
-
-  protected final String[] exceptionStrings;
 
   public TaskExecutor(
       SQLTelemetryRegistry telemetryRegistry,
@@ -60,27 +57,11 @@ public class TaskExecutor {
     this.experimentStartTime = experimentStartTime;
     this.telemetryRegistry = telemetryRegistry;
     this.arguments = arguments;
-    this.exceptionStrings = getExceptionStrings();
+   
   }
 
   protected Map<String, String> getArguments() {
     return this.arguments;
-  }
-
-  private String[] getExceptionStrings() {
-    // Check whether there are any strings that errors are allowed to contain. In that case, we skip
-    // the erroneous query and log a warning.
-    String[] exceptionStrings;
-    if (this.getArguments() == null
-        || this.getArguments().get(SKIP_ERRONEOUS_QUERY_STRINGS_KEY) == null) {
-      exceptionStrings = new String[] {};
-    } else {
-      exceptionStrings =
-          this.getArguments()
-              .get(SKIP_ERRONEOUS_QUERY_STRINGS_KEY)
-              .split(SKIP_ERRONEOUS_QUERY_DELIMITER);
-    }
-    return exceptionStrings;
   }
 
   public void executeTask(Connection connection, TaskExec task, Map<String, Object> values)
@@ -100,13 +81,12 @@ public class TaskExecutor {
     }
   }
 
-  protected final QueryResult executeStatement(
+  protected QueryResult executeStatement(
       Connection connection,
       StatementExec statement,
       Map<String, Object> values,
       boolean ignoreResults)
       throws ClientException {
-    boolean skip = false;
     QueryResult queryResult = null;
     Instant statementStartTime = Instant.now();
     try {
@@ -118,37 +98,32 @@ public class TaskExecutor {
                 StringUtils.replaceParameters(statement, values).getStatement());
       }
     } catch (Exception e) {
-      String loggedError =
-          "Exception executing statement: "
-              + statement.getId()
-              + ", statement text: "
-              + statement.getStatement()
-              + "; error message: "
-              + e.getMessage();
-      for (String skipException : exceptionStrings) {
-        if (e.getMessage().contains(skipException)) {
-          LOGGER.warn(loggedError);
-          writeStatementEvent(
-              statementStartTime, statement.getId(), Status.WARN, /* payload= */ loggedError);
+      
+        String loggedError =
+            "Exception executing statement: "
+                + statement.getId()
+                + ", statement text: "
+                + statement.getStatement();
 
-          skip = true;
-          break;
+        // appends driver exception message
+        String driverErrorMessage =  connection.getExceptionMessage(e);
+        if (driverErrorMessage != null) {
+          loggedError += driverErrorMessage;
         }
-      }
 
-      if (!skip) {
+        loggedError += "; Error message: " + e.getMessage();
+
         LOGGER.error(loggedError);
         writeStatementEvent(
             statementStartTime, statement.getId(), Status.FAILURE, /* payload= */ loggedError);
-
-        throw e;
-      }
+        
+        if (!connection.isExceptionHandled(e)) {
+          throw e;
+        }
     }
     // Only log success if we have not skipped execution.
-    if (!skip) {
-      writeStatementEvent(
+    writeStatementEvent(
           statementStartTime, statement.getId(), Status.SUCCESS, /* payload= */ null);
-    }
     return queryResult;
   }
 
