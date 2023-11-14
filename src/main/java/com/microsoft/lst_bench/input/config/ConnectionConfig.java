@@ -31,4 +31,6 @@ public interface ConnectionConfig {
   String getId();
 
   String getUrl();
+
+  String getConnectionExceptionHandlerClass();
 }

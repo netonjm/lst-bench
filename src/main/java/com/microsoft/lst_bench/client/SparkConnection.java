@@ -45,4 +45,14 @@ public class SparkConnection implements Connection {
   public void close() {
     session.close();
   }
+
+  @Override
+  public String getExceptionMessage(Exception exception) {
+    return null;
+  }
+
+  @Override
+  public Boolean isExceptionHandled(Exception exception) {
+    return false;
+  }
 }

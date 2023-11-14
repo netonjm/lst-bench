@@ -1,0 +1,8 @@
+diff a/src/main/java/com/microsoft/lst_bench/input/config/ConnectionConfig.java b/src/main/java/com/microsoft/lst_bench/input/config/ConnectionConfig.java	(rejected hunks)
+@@ -31,4 +31,6 @@
+   String getId();
+ 
+   String getUrl();
++
++  String getConnectionExceptionHandlerClass();
+ }

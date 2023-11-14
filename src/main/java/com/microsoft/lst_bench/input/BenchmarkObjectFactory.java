@@ -76,8 +76,7 @@ public class BenchmarkObjectFactory {
         connectionConfig.getUrl(),
         connectionConfig.getMaxNumRetries(),
         connectionConfig.getUsername(),
-        connectionConfig.getPassword(),
-        connectionConfig.getConnectionExceptionHandlerClass());
+        connectionConfig.getPassword());
   }
 
   private static SparkConnectionManager sparkConnectionManager(

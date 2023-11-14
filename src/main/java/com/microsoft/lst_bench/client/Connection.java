@@ -22,5 +22,8 @@ public interface Connection extends AutoCloseable {
 
   QueryResult executeQuery(String sqlText) throws ClientException;
 
+  String getExceptionMessage(Exception exception);
+  Boolean isExceptionHandled(Exception exception);
+
   void close() throws ClientException;
 }

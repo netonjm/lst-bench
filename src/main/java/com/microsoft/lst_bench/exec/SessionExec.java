@@ -16,6 +16,10 @@
 package com.microsoft.lst_bench.exec;
 
 import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Nullable;
+
 import org.immutables.value.Value;
 
 /** Represents a session in a phase. */
@@ -29,4 +33,10 @@ public interface SessionExec {
 
   /** Connection manager for this session (positional index). */
   int getTargetEndpoint();
+
+  @Value.Parameter(false)
+  @Nullable Map<String, String> getSessionExecutorArguments();
+
+  @Value.Parameter(false)
+  @Nullable String getCustomSessionExecutor();
 }
