@@ -87,43 +87,46 @@ public class TaskExecutor {
       Map<String, Object> values,
       boolean ignoreResults)
       throws ClientException {
+
+    boolean skip = false;
     QueryResult queryResult = null;
     Instant statementStartTime = Instant.now();
     try {
       if (ignoreResults) {
         connection.execute(StringUtils.replaceParameters(statement, values).getStatement());
       } else {
-        queryResult =
-            connection.executeQuery(
-                StringUtils.replaceParameters(statement, values).getStatement());
+        queryResult = connection.executeQuery(
+            StringUtils.replaceParameters(statement, values).getStatement());
       }
     } catch (Exception e) {
-      
-        String loggedError =
-            "Exception executing statement: "
-                + statement.getId()
-                + ", statement text: "
-                + statement.getStatement();
+      skip = true;
+      String loggedError = "Exception executing statement: "
+          + statement.getId()
+          + ", statement text: "
+          + statement.getStatement();
 
-        // appends driver exception message
-        String driverErrorMessage =  connection.getExceptionMessage(e);
-        if (driverErrorMessage != null) {
-          loggedError += driverErrorMessage;
-        }
+      // appends driver exception message
+      String driverErrorMessage = connection.getExceptionMessage(e);
+      if (driverErrorMessage != null) {
+        loggedError += driverErrorMessage;
+      }
 
-        loggedError += "; Error message: " + e.getMessage();
+      loggedError += "; Error message: " + e.getMessage();
 
-        LOGGER.error(loggedError);
-        writeStatementEvent(
-            statementStartTime, statement.getId(), Status.FAILURE, /* payload= */ loggedError);
-        
-        if (!connection.isExceptionHandled(e)) {
-          throw e;
-        }
+      LOGGER.error(loggedError);
+      writeStatementEvent(
+          statementStartTime, statement.getId(), Status.FAILURE, /* payload= */ loggedError);
+
+      if (!connection.isExceptionHandled(e)) {
+        throw e;
+      }
     }
     // Only log success if we have not skipped execution.
-    writeStatementEvent(
-          statementStartTime, statement.getId(), Status.SUCCESS, /* payload= */ null);
+    if (!skip) {
+       writeStatementEvent(
+        statementStartTime, statement.getId(), Status.SUCCESS, /* payload= */ null);
+    }
+   
     return queryResult;
   }
 
