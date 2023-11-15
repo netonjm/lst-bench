@@ -29,10 +29,12 @@ public class JDBCConnection implements Connection {
 
   private final java.sql.Connection connection;
   private final int maxNumRetries;
+  private final ExceptionHandler exceptionHandler;
 
-  public JDBCConnection(java.sql.Connection connection, int maxNumRetries) {
+  public JDBCConnection(java.sql.Connection connection, int maxNumRetries, ExceptionHandler exceptionHandler) {
     this.connection = connection;
     this.maxNumRetries = maxNumRetries;
+    this.exceptionHandler = exceptionHandler;
   }
 
   @Override
@@ -93,5 +95,27 @@ public class JDBCConnection implements Connection {
     } catch (SQLException e) {
       throw new ClientException(e);
     }
+  }
+
+  @Override
+  public String getExceptionMessage(Exception e) 
+  {
+    if (e instanceof SQLException) {
+      SQLException sqlException = (SQLException)e;
+      return "; SQL State: "
+        + sqlException.getSQLState()
+        + "; Error Code: "
+        + sqlException.getErrorCode();
+    }
+    return null;
+  }
+
+  @Override
+  public Boolean isExceptionHandled(Exception exception)
+  {
+    if (this.exceptionHandler != null && this.exceptionHandler.isHandled(exception)) {
+      return true;
+    }
+    return false;
   }
 }

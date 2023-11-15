@@ -103,14 +103,23 @@ public class TaskExecutor {
             "Exception executing statement: "
                 + statement.getId()
                 + ", statement text: "
-                + statement.getStatement()
-                + "; Error message: " + e.getMessage();
+                + statement.getStatement();
+
+        // appends driver exception message
+        String driverErrorMessage =  connection.getExceptionMessage(e);
+        if (driverErrorMessage != null) {
+          loggedError += driverErrorMessage;
+        }
+
+        loggedError += "; Error message: " + e.getMessage();
 
         LOGGER.error(loggedError);
         writeStatementEvent(
             statementStartTime, statement.getId(), Status.FAILURE, /* payload= */ loggedError);
         
-        throw e;
+        if (!connection.isExceptionHandled(e)) {
+          throw e;
+        }
     }
     // Only log success if we have not skipped execution.
     writeStatementEvent(

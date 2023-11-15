@@ -15,8 +15,10 @@
  */
 package com.microsoft.lst_bench.client;
 
+import java.lang.reflect.Constructor;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 
@@ -25,26 +27,47 @@ public class JDBCConnectionManager implements ConnectionManager {
 
   private final String url;
   private final int max_num_retries;
+  private final String connectionExceptionHandlerClass;
 
   @Nullable private final String username;
 
   @Nullable private final String password;
 
-  public JDBCConnectionManager(String url, int max_num_retries, String username, String password) {
+  public JDBCConnectionManager(String url, int max_num_retries, String username, String password, String connectionExceptionHandlerClass) {
     this.url = url;
     this.max_num_retries = max_num_retries;
     this.username = username;
     this.password = password;
+    this.connectionExceptionHandlerClass = connectionExceptionHandlerClass;
+  }
+
+ private ExceptionHandler getConnectionExceptionHandler(String exceptionHandlerClass) {
+    try {
+        Constructor<?> constructor =
+            Class.forName(exceptionHandlerClass)
+                .getDeclaredConstructor();
+        return (ExceptionHandler)
+            constructor.newInstance();
+      } catch (Exception e) {
+        throw new IllegalArgumentException(
+            "Unable to load custom exception handler class: " + exceptionHandlerClass, e);
+      }
   }
 
   @Override
   public Connection createConnection() throws ClientException {
     try {
+
+      ExceptionHandler exceptionHandler = null;
+      if (this.connectionExceptionHandlerClass != null) {
+        exceptionHandler = getConnectionExceptionHandler(connectionExceptionHandlerClass);
+      }
+
       if (StringUtils.isEmpty(username)) {
-        return new JDBCConnection(DriverManager.getConnection(url), this.max_num_retries);
+        return new JDBCConnection(DriverManager.getConnection(url), this.max_num_retries, exceptionHandler);
       } else {
         return new JDBCConnection(
-            DriverManager.getConnection(url, username, password), this.max_num_retries);
+            DriverManager.getConnection(url, username, password), this.max_num_retries, exceptionHandler);
       }
     } catch (SQLException e) {
       throw new ClientException(e);
